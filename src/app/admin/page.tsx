@@ -19,8 +19,9 @@ interface PendingSubmission {
 
 export default function AdminDashboard() {
     const [stats, setStats] = useState({
-        totalRoutes: 12,
+        totalRoutes: 7,
         pendingReviews: 0,
+        contributors: 0
     });
     const [pendingSubmissions, setPendingSubmissions] = useState<PendingSubmission[]>([]);
 
@@ -31,9 +32,14 @@ export default function AdminDashboard() {
 
         // Update stats
         const approved = JSON.parse(localStorage.getItem('trotro_approved_routes') || '[]');
+
+        // Calculate unique contributors
+        const uniqueContributors = new Set(approved.map((r: any) => r.submittedKy)).size;
+
         setStats({
-            totalRoutes: 12 + approved.length, // Base + Approved
-            pendingReviews: submissions.length
+            totalRoutes: 7 + approved.length, // Base (7 MOCK_ROUTES) + Approved
+            pendingReviews: submissions.length,
+            contributors: uniqueContributors // Dynamic count
         });
     }, []);
 
@@ -59,9 +65,12 @@ export default function AdminDashboard() {
         localStorage.setItem('trotro_approved_routes', JSON.stringify([...approved, newRoute]));
 
         // Update stats
+        const uniqueContributors = new Set([...approved, newRoute].map((r: any) => r.submittedKy)).size;
+
         setStats(prev => ({
             totalRoutes: prev.totalRoutes + 1,
-            pendingReviews: prev.pendingReviews - 1
+            pendingReviews: prev.pendingReviews - 1,
+            contributors: uniqueContributors
         }));
     };
 
@@ -100,7 +109,7 @@ export default function AdminDashboard() {
                 />
                 <StatsCard
                     title="Total Contributors"
-                    value="48"
+                    value={stats.contributors.toString()}
                     icon={TrendingUp}
                     trend="2%"
                     trendUp={true}
