@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 export type UserRole = "SUPER_ADMIN" | "EDITOR" | "VIEWER";
 
@@ -20,7 +21,7 @@ interface AuthContextType {
     requestPasswordReset: (email: string) => Promise<string | null>;
     resetPassword: (token: string, newPassword: string) => Promise<boolean>;
     logout: () => void;
-    getAllUsers: () => User[];
+    getAllUsers: () => Promise<User[]>; // Changed to Promise
     isAuthenticated: boolean;
     isLoading: boolean;
 }
@@ -29,169 +30,155 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
-    const [isLoading, setIsLoading] = useState(true); // Simulate checking session
+    const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
 
-    useEffect(() => {
-        // Check local storage for persisted "session" on mount
-        const storedUser = localStorage.getItem("trotro_user");
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
-        setIsLoading(false);
-    }, []);
+    const fetchProfile = async (userId: string, email: string) => {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('full_name, role')
+            .eq('id', userId)
+            .single();
 
-    const login = (email: string, password: string): Promise<boolean> => {
-        return new Promise((resolve) => {
-            // 1. Check Hardcoded Users (Admin/Editor)
-            if (email === 'admin@trotro.com' && password === 'admin123') {
-                const user: User = { id: 'admin', name: 'Super Admin', email, role: 'SUPER_ADMIN' };
-                persistSession(user);
-                resolve(true);
-                return;
-            }
-            if (email === 'editor@trotro.com' && password === 'editor123') {
-                const user: User = { id: 'editor', name: 'Editor User', email, role: 'EDITOR' };
-                persistSession(user);
-                resolve(true);
-                return;
-            }
-
-            // 2. Check "Database" (LocalStorage)
-            const db = getUsersDB();
-            const user = db.find(u => u.email === email && u.password === password);
-
-            if (user) {
-                const sessionUser: User = { id: user.id, name: user.name, email: user.email, role: user.role };
-                persistSession(sessionUser);
-                resolve(true);
-            } else {
-                resolve(false);
-            }
-        });
-    };
-
-    const register = (name: string, email: string, password: string): Promise<boolean> => {
-        return new Promise((resolve) => {
-            const db = getUsersDB();
-
-            if (db.find(u => u.email === email)) {
-                resolve(false); // Email already exists
-                return;
-            }
-
-            const newUser = {
-                id: Math.random().toString(36).substr(2, 9),
-                name,
+        if (error) {
+            console.error('Error fetching profile:', error);
+            // Fallback for new users if trigger hasn't fired yet? 
+            // Or maybe trigger failed? Default to viewer.
+            return {
+                id: userId,
                 email,
-                password, // In a real app, hash this!
+                name: 'Unknown User',
                 role: 'VIEWER' as UserRole
             };
-
-            db.push(newUser);
-            localStorage.setItem("trotro_users_db", JSON.stringify(db));
-
-            // Auto login
-            const sessionUser: User = { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role };
-            persistSession(sessionUser);
-
-            resolve(true);
-        });
-    };
-
-    const createUser = (name: string, email: string, password: string, role: UserRole): Promise<boolean> => {
-        return new Promise((resolve) => {
-            const db = getUsersDB();
-
-            if (db.find(u => u.email === email)) {
-                resolve(false); // Email already exists
-                return;
-            }
-
-            const newUser = {
-                id: Math.random().toString(36).substr(2, 9),
-                name,
-                email,
-                password,
-                role
-            };
-
-            db.push(newUser);
-            localStorage.setItem("trotro_users_db", JSON.stringify(db));
-
-            // NO auto-login, just resolve success
-            resolve(true);
-        });
-    };
-
-    const requestPasswordReset = (email: string): Promise<string | null> => {
-        return new Promise((resolve) => {
-            // Mock check: In real app, check if email exists. 
-            // Here we always return a token for demo purposes if valid format
-            if (email.includes('@')) {
-                resolve('mock_reset_token_123');
-            } else {
-                resolve(null);
-            }
-        });
-    };
-
-    const resetPassword = (token: string, newPassword: string): Promise<boolean> => {
-        return new Promise((resolve) => {
-            // Mock logic: In real app, verify token and update user.
-            // Here we will just update the 'admin' user or 'editor' user if they match the "session" 
-            // allowing easy testing. For the mock, we can't easily map token -> email without a token DB.
-            // So we will just say "Success" and for the purpose of the demo, assume it worked.
-
-            // BUT, to make it verifiable: Let's assume we are resetting 'admin@trotro.com' if we use the dev link.
-            // OR better: The "request" page will pass the email as a query param in the mock link, 
-            // and we can use that to update the DB. This is insecure for real apps but fine for mock.
-
-            // Simpler approach for MVP:
-            // 1. We won't actually update the password in the hardcoded logic (since it's hardcoded).
-            // 2. We WILL update the localStorage DB if a matching user is found there.
-
-            // Since we don't have the email here (only token), we'll assume the simple success path.
-            // Actual password update logic is tricky with mock hardcoded users.
-
-            resolve(true);
-        });
-    };
-
-    const persistSession = (user: User) => {
-        setUser(user);
-        localStorage.setItem("trotro_user", JSON.stringify(user));
-
-        // Redirect based on role
-        if (user.role === 'SUPER_ADMIN' || user.role === 'EDITOR') {
-            router.push("/admin");
-        } else {
-            router.push("/");
         }
+
+        // Map database role to TS Role
+        const roleMap: Record<string, UserRole> = {
+            'super_admin': 'SUPER_ADMIN',
+            'editor': 'EDITOR',
+            'viewer': 'VIEWER'
+        };
+
+        return {
+            id: userId,
+            email,
+            name: data.full_name || email.split('@')[0],
+            role: (roleMap[data.role] || 'VIEWER') as UserRole
+        };
     };
 
-    const getUsersDB = (): any[] => {
-        const dbStr = localStorage.getItem("trotro_users_db");
-        return dbStr ? JSON.parse(dbStr) : [];
+    useEffect(() => {
+        // 1. Check active session
+        const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                const profile = await fetchProfile(session.user.id, session.user.email!);
+                setUser(profile);
+            }
+            setIsLoading(false);
+        };
+        checkSession();
+
+        // 2. Listen for changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (session?.user) {
+                const profile = await fetchProfile(session.user.id, session.user.email!);
+                setUser(profile);
+            } else {
+                setUser(null);
+            }
+            setIsLoading(false);
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    const login = async (email: string, password: string): Promise<boolean> => {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+            console.error("Login failed:", error.message);
+            return false;
+        }
+        return true;
     };
 
-    const logout = () => {
-        setUser(null);
-        localStorage.removeItem("trotro_user");
+    const register = async (name: string, email: string, password: string): Promise<boolean> => {
+        const { error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: {
+                    full_name: name
+                }
+            }
+        });
+
+        if (error) {
+            console.error("Registration failed:", error.message);
+            return false;
+        }
+        return true;
+    };
+
+    const createUser = async (name: string, email: string, password: string, role: string): Promise<boolean> => {
+        // NOTE: Supabase client cannot easily create ANOTHER user without being logged out.
+        // Usually creation of other users is done via Service Role (Admin) API backend function.
+        // For Client-side 'createUser' (like Admin Panel adding a user), we might need an Edge Function.
+
+        // For MVP: We will simply show an alert saying this requires backend functions.
+        // OR: We can use a trick if we had the service_role key, but we only have Anon Key.
+
+        console.warn("Client-side user creation by Admin is restricted in Supabase (requires Admin API).");
+        alert("To create a new user with specific roles, please invite them via the Supabase Dashboard > Authentication > Users.");
+        return false;
+    };
+
+    const requestPasswordReset = async (email: string): Promise<string | null> => {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/auth/update-password`,
+        });
+        if (error) {
+            console.error("Reset request failed:", error.message);
+            return null;
+        }
+        return "success";
+    };
+
+    const resetPassword = async (token: string, newPassword: string): Promise<boolean> => {
+        // In Supabase, usually the user clicks link -> lands on page -> session established -> updateUser
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+        if (error) {
+            console.error("Password update failed:", error.message);
+            return false;
+        }
+        return true;
+    };
+
+    const logout = async () => {
+        await supabase.auth.signOut();
         router.push("/auth/login");
     };
 
-    const getAllUsers = (): User[] => {
-        // Return mocked hardcoded + localStorage users
-        const hardcoded = [
-            { id: 'admin', name: 'Super Admin', email: 'admin@trotro.com', role: 'SUPER_ADMIN' as UserRole },
-            { id: 'editor', name: 'Editor User', email: 'editor@trotro.com', role: 'EDITOR' as UserRole },
-        ];
-        const db = getUsersDB();
-        // Map db users to User type (db users might store password, we shouldn't return it ideally, but acceptable for this mock)
-        const dbUsers = db.map(u => ({ id: u.id, name: u.name, email: u.email, role: u.role }));
+    const getAllUsers = async (): Promise<User[]> => {
+        // This requires RLS allowing 'select * from profiles'
+        const { data, error } = await supabase.from('profiles').select('*');
+        if (error) {
+            console.error("Fetch users failed:", error);
+            return [];
+        }
 
-        return [...hardcoded, ...dbUsers];
+        const roleMap: Record<string, UserRole> = {
+            'super_admin': 'SUPER_ADMIN',
+            'editor': 'EDITOR',
+            'viewer': 'VIEWER'
+        };
+
+        return data.map((p: any) => ({
+            id: p.id,
+            name: p.full_name || p.email,
+            email: p.email,
+            role: (roleMap[p.role] || 'VIEWER') as UserRole
+        }));
     };
 
     return (
@@ -199,7 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             user,
             login,
             register,
-            createUser,
+            createUser: createUser as any, // Type cast for compatibility
             requestPasswordReset,
             resetPassword,
             logout,
@@ -219,3 +206,4 @@ export function useAuth() {
     }
     return context;
 }
+

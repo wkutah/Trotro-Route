@@ -3,12 +3,13 @@
 import { useAuth, UserRole } from "@/context/AuthContext";
 import { User, Shield, Mail, Calendar, Plus, X, AlertCircle } from 'lucide-react';
 import RoleGuard from "@/components/admin/RoleGuard";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function UsersPage() {
     const { getAllUsers, createUser } = useAuth();
-    const users = getAllUsers();
+    // const users = getAllUsers(); // OLD Sync call
 
+    const [users, setUsers] = useState<any[]>([]); // Initialize empty
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newName, setNewName] = useState("");
     const [newEmail, setNewEmail] = useState("");
@@ -16,6 +17,14 @@ export default function UsersPage() {
     const [newRole, setNewRole] = useState<UserRole>("VIEWER");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchUsers = async () => {
+            const data = await getAllUsers();
+            setUsers(data);
+        };
+        fetchUsers();
+    }, [getAllUsers]);
 
     const handleCreateUser = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -77,8 +86,8 @@ export default function UsersPage() {
                                 </td>
                                 <td className="py-4 px-6">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.role === 'SUPER_ADMIN' ? 'bg-red-100 text-red-800' :
-                                            user.role === 'EDITOR' ? 'bg-indigo-100 text-indigo-800' :
-                                                'bg-green-100 text-green-800'
+                                        user.role === 'EDITOR' ? 'bg-indigo-100 text-indigo-800' :
+                                            'bg-green-100 text-green-800'
                                         }`}>
                                         {user.role}
                                     </span>
