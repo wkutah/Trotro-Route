@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Edit2, Trash2, X, Save } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Save, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import RoleGuard from '@/components/admin/RoleGuard';
 import { useState, useEffect } from 'react';
@@ -237,4 +237,4 @@ export default function AdminRoutes() {
 }
 
 // Helper icon import needed if AlertCircle wasn't imported
-import { AlertCircle } from 'lucide-react';
+
