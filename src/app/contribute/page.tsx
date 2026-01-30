@@ -34,7 +34,23 @@ function ContributeForm() {
         setError("");
 
         // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // Save to LocalStorage for Admin Review (Mock Backend)
+        const newSubmission = {
+            id: `sub_${Date.now()}`,
+            name: routeName || `${fromLocation} - ${toLocation}`,
+            from: fromLocation,
+            to: toLocation,
+            fare: parseFloat(fare) || 0,
+            notes: notes,
+            status: 'pending',
+            submittedKy: user?.email || 'Anonymous',
+            timestamp: new Date().toISOString()
+        };
+
+        const existing = JSON.parse(localStorage.getItem('trotro_pending_submissions') || '[]');
+        localStorage.setItem('trotro_pending_submissions', JSON.stringify([newSubmission, ...existing]));
 
         // Mock success
         setSubmitted(true);

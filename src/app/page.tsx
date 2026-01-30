@@ -55,23 +55,53 @@ export default function Home() {
       const fromLower = from.toLowerCase().trim();
       const toLower = to.toLowerCase().trim();
 
-      // Attempt to find a matching key based on simple includes
-      let foundKey = Object.keys(MOCK_ROUTES).find(key => {
-        const [kFrom, kTo] = key.split('-');
-        return fromLower.includes(kFrom) && toLower.includes(kTo);
+      // 1. Get Approved Routes from LocalStorage
+      const approvedRoutes = JSON.parse(localStorage.getItem('trotro_approved_routes') || '[]');
+
+      // Determine match from Approved Routes
+      const approvedMatch = approvedRoutes.find((r: any) => {
+        // Check routeKey
+        if (r.routeKey) {
+          const [rFrom, rTo] = r.routeKey.split('-');
+          if (fromLower.includes(rFrom) && toLower.includes(rTo)) return true;
+        }
+        // Fallback: direct string matching on names
+        return r.from.toLowerCase().includes(fromLower) && r.to.toLowerCase().includes(toLower);
       });
 
-      // Special case: Reverse direction logic (if we had reverse routes, or just lenient matching)
-      if (!foundKey) {
-        // Fallback 1: Try exact ID matches
-        // Fallback 2: Default to Circle-Madina if "Circle" is typed
-        if (fromLower.includes('circle') && toLower.includes('madina')) foundKey = 'circle-madina';
-        else if (fromLower.includes('accra') && toLower.includes('achimota')) foundKey = 'achimota-accra';
-        // Allow failure for other cases
-      }
+      let found = null;
 
-      // Final match
-      const found = foundKey ? MOCK_ROUTES[foundKey] : null;
+      if (approvedMatch) {
+        // Convert to RouteResult format
+        found = {
+          id: approvedMatch.id,
+          totalFare: approvedMatch.fare,
+          totalDuration: 'Unknown', // User didn't input duration
+          steps: [
+            {
+              from: { id: 'start', name: approvedMatch.from, coords: [5.6, -0.2] as [number, number] },
+              to: { id: 'end', name: approvedMatch.to, coords: [5.65, -0.15] as [number, number] },
+              fare: approvedMatch.fare,
+              duration: 'N/A',
+              description: approvedMatch.notes || 'Direct Route'
+            }
+          ]
+        };
+      } else {
+        // 2. Fallback to MOCK_ROUTES if no approved match
+        let foundKey = Object.keys(MOCK_ROUTES).find(key => {
+          const [kFrom, kTo] = key.split('-');
+          return fromLower.includes(kFrom) && toLower.includes(kTo);
+        });
+
+        // Fallbacks for known routes if input is vague
+        if (!foundKey) {
+          if (fromLower.includes('circle') && toLower.includes('madina')) foundKey = 'circle-madina';
+          else if (fromLower.includes('accra') && toLower.includes('achimota')) foundKey = 'achimota-accra';
+        }
+
+        found = foundKey ? MOCK_ROUTES[foundKey] : null;
+      }
 
       if (found) {
         setResult(found);
