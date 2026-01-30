@@ -1,3 +1,5 @@
+"use client";
+
 import StatsCard from '@/components/admin/StatsCard';
 import { Route, Search, AlertCircle, TrendingUp, Check, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
