@@ -48,13 +48,29 @@ export default function Home() {
     setLoading(true);
     // Mock network delay
     setTimeout(() => {
-      // Simple mock matching logic
-      const key = `${from.toLowerCase().includes('circle') ? 'circle' : 'achimota'}-${to.toLowerCase().includes('madina') ? 'madina' : 'accra'}`;
+      const fromLower = from.toLowerCase().trim();
+      const toLower = to.toLowerCase().trim();
 
-      // Fallback to avoid empty result for demo if input doesn't match perfectly
-      // If user types nothing, default to circle-madina
-      const found = MOCK_ROUTES[key] || MOCK_ROUTES['circle-madina'];
+      // Attempt to find a matching key based on simple includes
+      let foundKey = Object.keys(MOCK_ROUTES).find(key => {
+        const [kFrom, kTo] = key.split('-');
+        return fromLower.includes(kFrom) && toLower.includes(kTo);
+      });
 
+      // Special case: Reverse direction logic (if we had reverse routes, or just lenient matching)
+      if (!foundKey) {
+        // Fallback 1: Try exact ID matches
+        // Fallback 2: Default to Circle-Madina if "Circle" is typed
+        if (fromLower.includes('circle')) foundKey = 'circle-madina';
+        else if (fromLower.includes('accra')) foundKey = 'achimota-accra'; // Default for demo
+        else if (fromLower.includes('lapaz')) foundKey = 'circle-lapaz';
+        else if (fromLower.includes('37')) foundKey = '37-madina';
+      }
+
+      // Final match
+      const found = foundKey ? MOCK_ROUTES[foundKey] : MOCK_ROUTES['circle-madina'];
+
+      // If we found something, set it. In a real app we'd show "No result found"
       setResult(found);
       setLoading(false);
     }, 800);
