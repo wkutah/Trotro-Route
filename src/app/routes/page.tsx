@@ -4,8 +4,32 @@ import { MOCK_ROUTES } from "@/data/routes";
 import { Bus, Clock, Coins, MapPin, ArrowRight } from "lucide-react";
 import ProtectedRoute from "@/components/admin/ProtectedRoute";
 
+import { useState, useEffect } from "react";
+
 export default function RoutesPage() {
-    const routes = Object.values(MOCK_ROUTES);
+    const [routes, setRoutes] = useState(Object.values(MOCK_ROUTES));
+
+    useEffect(() => {
+        // Load combined routes (Mock + Approved)
+        const approved = JSON.parse(localStorage.getItem('trotro_approved_routes') || '[]');
+
+        const formattedApproved = approved.map((r: any) => ({
+            id: r.id,
+            totalFare: r.fare,
+            totalDuration: 'Unknown',
+            steps: [
+                {
+                    from: { id: 'start', name: r.from, coords: [0, 0] },
+                    to: { id: 'end', name: r.to, coords: [0, 0] },
+                    fare: r.fare,
+                    duration: 'N/A',
+                    description: r.notes || 'Direct Route'
+                }
+            ]
+        }));
+
+        setRoutes([...Object.values(MOCK_ROUTES), ...formattedApproved]);
+    }, []);
 
     return (
         <ProtectedRoute>
