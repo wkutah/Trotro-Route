@@ -106,6 +106,11 @@ export default function Home() {
       if (found) {
         setResult(found);
       }
+
+      // Increment Daily Searches Counter for Admin Dashboard
+      const currentSearches = parseInt(localStorage.getItem('trotro_daily_searches') || '1284'); // Base matching the mock
+      localStorage.setItem('trotro_daily_searches', (currentSearches + 1).toString());
+
       setHasSearched(true);
       setLoading(false);
     }, 800);

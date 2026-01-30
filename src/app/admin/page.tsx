@@ -21,7 +21,8 @@ export default function AdminDashboard() {
     const [stats, setStats] = useState({
         totalRoutes: 7,
         pendingReviews: 0,
-        contributors: 0
+        contributors: 0,
+        dailySearches: 1284
     });
     const [pendingSubmissions, setPendingSubmissions] = useState<PendingSubmission[]>([]);
 
@@ -36,10 +37,14 @@ export default function AdminDashboard() {
         // Calculate unique contributors
         const uniqueContributors = new Set(approved.map((r: any) => r.submittedKy)).size;
 
+        // Get Daily Searches
+        const dailySearches = parseInt(localStorage.getItem('trotro_daily_searches') || '1284');
+
         setStats({
             totalRoutes: 7 + approved.length, // Base (7 MOCK_ROUTES) + Approved
             pendingReviews: submissions.length,
-            contributors: uniqueContributors // Dynamic count
+            contributors: uniqueContributors, // Dynamic count
+            dailySearches: dailySearches
         });
     }, []);
 
@@ -70,7 +75,8 @@ export default function AdminDashboard() {
         setStats(prev => ({
             totalRoutes: prev.totalRoutes + 1,
             pendingReviews: prev.pendingReviews - 1,
-            contributors: uniqueContributors
+            contributors: uniqueContributors,
+            dailySearches: prev.dailySearches
         }));
     };
 
@@ -97,7 +103,7 @@ export default function AdminDashboard() {
                 />
                 <StatsCard
                     title="Daily Searches"
-                    value="1,284"
+                    value={stats.dailySearches.toLocaleString()}
                     icon={Search}
                     trend="12%"
                     trendUp={true}
