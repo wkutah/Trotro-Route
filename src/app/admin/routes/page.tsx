@@ -206,9 +206,9 @@ export default function AdminRoutes() {
                             </div>
 
                             {editingRoute.isMock && (
-                                <div className="p-3 bg-yellow-50 text-yellow-800 text-sm rounded-lg flex items-start gap-2">
+                                <div className="p-3 bg-blue-50 text-blue-800 text-sm rounded-lg flex items-start gap-2">
                                     <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                                    <p>System routes (Mock) cannot be edited in this Alpha version. Only user-contributed routes can be modified.</p>
+                                    <p>You are editing a System Route. Saving this will create a custom override.</p>
                                 </div>
                             )}
 
@@ -222,7 +222,6 @@ export default function AdminRoutes() {
                             </button>
                             <button
                                 onClick={handleSave}
-                                disabled={editingRoute.isMock}
                                 className="px-4 py-2 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 <Save size={18} />
