@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { Search, Lock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { MOCK_ROUTES, RouteResult as RouteResultType } from '@/data/routes';
+import { RouteGraph } from '@/lib/graph';
 import RouteResult from '@/components/RouteResult';
 import NavigationMode from '@/components/NavigationMode';
 
@@ -45,70 +46,64 @@ export default function Home() {
   const [isNavigating, setIsNavigating] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
+  import { RouteGraph } from '@/lib/graph';
+
+  // ... imports remain the same ...
+
   const handleSearch = () => {
     setLoading(true);
     setHasSearched(false);
     setResult(null);
 
-    // Mock network delay
+    // Mock network delay (keeping it for UX feel)
     setTimeout(() => {
       const fromLower = from.toLowerCase().trim();
       const toLower = to.toLowerCase().trim();
 
-      // 1. Get Approved Routes from LocalStorage
+      // 1. Initialize Graph (Loads Mocks automatically)
+      const graph = new RouteGraph();
+
+      // 2. Inject Approved Routes from LocalStorage
       const approvedRoutes = JSON.parse(localStorage.getItem('trotro_approved_routes') || '[]');
+      graph.injectRoutes(approvedRoutes);
 
-      // Determine match from Approved Routes
-      const approvedMatch = approvedRoutes.find((r: any) => {
-        // Check routeKey
-        if (r.routeKey) {
-          const [rFrom, rTo] = r.routeKey.split('-');
-          if (fromLower.includes(rFrom) && toLower.includes(rTo)) return true;
-        }
-        // Fallback: direct string matching on names
-        return r.from.toLowerCase().includes(fromLower) && r.to.toLowerCase().includes(toLower);
-      });
+      // 3. Find Shortest Path
+      // (Note: Graph expects IDs, but we have names. We need to find ID by Name first or use Name as ID if simple)
+      // Our Graph Logic uses IDs from STATIONS. 
+      // If user types "Circle", we need to map to "circle".
+      // Let's do a quick fuzzy match or direct ID match.
 
-      let found = null;
+      const findIdByName = (name: string) => {
+        // 1. Try exact match on Station Names
+        const { STATIONS } = require('@/data/routes'); // lazy load to avoid cycle issues if any
+        const station = STATIONS.find((s: any) => s.name.toLowerCase().includes(name) || s.id === name);
+        if (station) return station.id;
 
-      if (approvedMatch) {
-        // Convert to RouteResult format
-        found = {
-          id: approvedMatch.id,
-          totalFare: approvedMatch.fare,
-          totalDuration: 'Unknown', // User didn't input duration
-          steps: [
-            {
-              from: { id: 'start', name: approvedMatch.from, coords: [5.6, -0.2] as [number, number] },
-              to: { id: 'end', name: approvedMatch.to, coords: [5.65, -0.15] as [number, number] },
-              fare: approvedMatch.fare,
-              duration: 'N/A',
-              description: approvedMatch.notes || 'Direct Route'
-            }
-          ]
+        // 2. If not found in Stations, maybe it's a new node from approved routes?
+        // Our Graph normalized inputs to lowercase IDs.
+        return name;
+      };
+
+      const startId = findIdByName(fromLower);
+      const endId = findIdByName(toLower);
+
+      console.log(`Searching path from ${startId} to ${endId}`);
+
+      const foundPath = graph.findShortestPath(startId, endId);
+
+      if (foundPath) {
+        // Convert to RouteResultType
+        const result: RouteResultType = {
+          id: `trip_${Date.now()}`,
+          totalFare: foundPath.totalFare,
+          totalDuration: foundPath.totalDuration,
+          steps: foundPath.steps
         };
-      } else {
-        // 2. Fallback to MOCK_ROUTES if no approved match
-        let foundKey = Object.keys(MOCK_ROUTES).find(key => {
-          const [kFrom, kTo] = key.split('-');
-          return fromLower.includes(kFrom) && toLower.includes(kTo);
-        });
-
-        // Fallbacks for known routes if input is vague
-        if (!foundKey) {
-          if (fromLower.includes('circle') && toLower.includes('madina')) foundKey = 'circle-madina';
-          else if (fromLower.includes('accra') && toLower.includes('achimota')) foundKey = 'achimota-accra';
-        }
-
-        found = foundKey ? MOCK_ROUTES[foundKey] : null;
+        setResult(result);
       }
 
-      if (found) {
-        setResult(found);
-      }
-
-      // Increment Daily Searches Counter for Admin Dashboard
-      const currentSearches = parseInt(localStorage.getItem('trotro_daily_searches') || '1284'); // Base matching the mock
+      // Increment Daily Searches Counter
+      const currentSearches = parseInt(localStorage.getItem('trotro_daily_searches') || '1284');
       localStorage.setItem('trotro_daily_searches', (currentSearches + 1).toString());
 
       setHasSearched(true);
