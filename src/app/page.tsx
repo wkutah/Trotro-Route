@@ -43,9 +43,13 @@ export default function Home() {
   const [result, setResult] = useState<RouteResultType | null>(null);
   const [loading, setLoading] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const handleSearch = () => {
     setLoading(true);
+    setHasSearched(false);
+    setResult(null);
+
     // Mock network delay
     setTimeout(() => {
       const fromLower = from.toLowerCase().trim();
@@ -61,17 +65,18 @@ export default function Home() {
       if (!foundKey) {
         // Fallback 1: Try exact ID matches
         // Fallback 2: Default to Circle-Madina if "Circle" is typed
-        if (fromLower.includes('circle')) foundKey = 'circle-madina';
-        else if (fromLower.includes('accra')) foundKey = 'achimota-accra'; // Default for demo
-        else if (fromLower.includes('lapaz')) foundKey = 'circle-lapaz';
-        else if (fromLower.includes('37')) foundKey = '37-madina';
+        if (fromLower.includes('circle') && toLower.includes('madina')) foundKey = 'circle-madina';
+        else if (fromLower.includes('accra') && toLower.includes('achimota')) foundKey = 'achimota-accra';
+        // Allow failure for other cases
       }
 
       // Final match
-      const found = foundKey ? MOCK_ROUTES[foundKey] : MOCK_ROUTES['circle-madina'];
+      const found = foundKey ? MOCK_ROUTES[foundKey] : null;
 
-      // If we found something, set it. In a real app we'd show "No result found"
-      setResult(found);
+      if (found) {
+        setResult(found);
+      }
+      setHasSearched(true);
       setLoading(false);
     }, 800);
   };
@@ -137,48 +142,68 @@ export default function Home() {
             </div>
 
             {/* Search Input Mock */}
-            {!result ? (
-              <div className="bg-white p-2 rounded-2xl shadow-lg border border-gray-100 relative">
-                <div className="space-y-4 p-4">
-                  <div className="relative">
-                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">From</label>
-                    <input
-                      type="text"
-                      value={from}
-                      onChange={(e) => setFrom(e.target.value)}
-                      placeholder="e.g. Kwame Nkrumah Circle"
-                      className="w-full text-lg font-medium text-gray-900 placeholder-gray-400 border-b border-gray-200 pb-2 focus:outline-none focus:border-blue-500 transition-colors"
-                    />
+            {!result && !isNavigating ? (
+              <div className="space-y-6">
+                <div className="bg-white p-2 rounded-2xl shadow-lg border border-gray-100 relative">
+                  <div className="space-y-4 p-4">
+                    <div className="relative">
+                      <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">From</label>
+                      <input
+                        type="text"
+                        value={from}
+                        onChange={(e) => setFrom(e.target.value)}
+                        placeholder="e.g. Kwame Nkrumah Circle"
+                        className="w-full text-lg font-medium text-gray-900 placeholder-gray-400 border-b border-gray-200 pb-2 focus:outline-none focus:border-blue-500 transition-colors"
+                      />
+                    </div>
+                    <div className="relative">
+                      <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">To</label>
+                      <input
+                        type="text"
+                        value={to}
+                        onChange={(e) => setTo(e.target.value)}
+                        placeholder="e.g. Madina Station"
+                        className="w-full text-lg font-medium text-gray-900 placeholder-gray-400 border-b border-gray-200 pb-2 focus:outline-none focus:border-blue-500 transition-colors"
+                      />
+                    </div>
                   </div>
-                  <div className="relative">
-                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">To</label>
-                    <input
-                      type="text"
-                      value={to}
-                      onChange={(e) => setTo(e.target.value)}
-                      placeholder="e.g. Madina Station"
-                      className="w-full text-lg font-medium text-gray-900 placeholder-gray-400 border-b border-gray-200 pb-2 focus:outline-none focus:border-blue-500 transition-colors"
-                    />
-                  </div>
+                  <button
+                    onClick={handleSearch}
+                    disabled={loading || !from || !to}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-70 disabled:cursor-not-allowed">
+                    {loading ? (
+                      <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>
+                    ) : (
+                      <>
+                        <Search size={20} />
+                        Find Route
+                      </>
+                    )}
+                  </button>
                 </div>
-                <button
-                  onClick={handleSearch}
-                  disabled={loading}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-70 disabled:cursor-not-allowed">
-                  {loading ? (
-                    <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>
-                  ) : (
-                    <>
-                      <Search size={20} />
-                      Find Route
-                    </>
-                  )}
-                </button>
+
+                {hasSearched && !loading && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6 animate-in fade-in slide-in-from-bottom-2">
+                    <h3 className="text-lg font-bold text-orange-800 mb-2">Route Information Not Available</h3>
+                    <p className="text-orange-700 text-sm mb-4">
+                      We don't have a record for a direct route from <strong>{from}</strong> to <strong>{to}</strong> yet.
+                    </p>
+                    <p className="text-orange-700 text-sm mb-6">
+                      Would you like to contribute this route to our database?
+                    </p>
+                    <a
+                      href={`/contribute?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}
+                      className="block w-full text-center bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-xl transition-colors shadow-sm"
+                    >
+                      Yes, Contribute This Route
+                    </a>
+                  </div>
+                )}
               </div>
             ) : (
               <RouteResult
-                route={result}
-                onClose={() => setResult(null)}
+                route={result!}
+                onClose={() => { setResult(null); setHasSearched(false); }}
                 onStartNavigation={() => setIsNavigating(true)}
               />
             )}
